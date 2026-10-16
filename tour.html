@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>지역별 여행지 카드북</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+    body {
+      background-color: #f4f6f9;
+      margin: 0;
+      padding: 40px 20px;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 1000px;
+      background: #ffffff;
+      border-radius: 20px;
+      padding: 36px 32px;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+    }
+    h1 {
+      text-align: center;
+      color: #1e293b;
+      margin-top: 0;
+      margin-bottom: 8px;
+    }
+    .subtitle {
+      text-align: center;
+      color: #64748b;
+      font-size: 14px;
+      margin-bottom: 28px;
+    }
+
+    /* 지역 선택 드롭다운 UI */
+    .select-wrapper {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      margin-bottom: 32px;
+    }
+    select {
+      padding: 12px 20px;
+      font-size: 16px;
+      border: 2px solid #cbd5e1;
+      border-radius: 12px;
+      outline: none;
+      background-color: #ffffff;
+      color: #334155;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    select:focus {
+      border-color: #3b82f6;
+    }
+
+    /* Status 메시지 */
+    .status-msg {
+      text-align: center;
+      font-size: 15px;
+      color: #3b82f6;
+      font-weight: 600;
+      min-height: 24px;
+      margin-bottom: 20px;
+    }
+
+    /* 카드북 그리드 레이아웃 */
+    .card-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 24px;
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.03);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      display: flex;
+      flex-direction: column;
+    }
+    .card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 20px rgba(0, 0, 0, 0.08);
+    }
+    .card-img {
+      width: 100%;
+      height: 200px;
+      object-fit: cover;
+      background-color: #f1f5f9;
+    }
+    .card-body {
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      flex-grow: 1;
+    }
+    .card-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: #1e293b;
+      margin: 0 0 8px 0;
+      line-height: 1.4;
+    }
+    .card-addr {
+      font-size: 13px;
+      color: #64748b;
+      margin: 0;
+      line-height: 1.4;
+    }
+
+    /* 정보 없음 / 초기 숨김 처리 */
+    .hidden {
+      display: none !important;
+    }
+    .empty-view {
+      text-align: center;
+      padding: 60px 0;
+      color: #94a3b8;
+      font-size: 16px;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <h1>🏝️ 지역별 여행지 카드북</h1>
+  <div class="subtitle">원하는 지역을 선택하면 공공데이터 API를 통해 관광 정보를 시각화합니다.</div>
+
+  <!-- 지역 선택 드롭다운 -->
+  <div class="select-wrapper">
+    <select id="areaCodeSelect" onchange="onAreaChange()">
+      <option value="">-- 지역을 선택하세요 --</option>
+      <option value="1">서울</option>
+      <option value="2">인천</option>
+      <option value="3">대전</option>
+      <option value="4">대구</option>
+      <option value="5">광주</option>
+      <option value="6">부산</option>
+      <option value="7">울산</option>
+      <option value="8">세종</option>
+      <option value="31">경기도</option>
+      <option value="32">강원도</option>
+      <option value="39">제주도</option>
+    </select>
+  </div>
+
+  <div class="status-msg" id="statusMsg"></div>
+
+  <!-- 시각화된 카드북 목록 뷰 -->
+  <div id="cardGrid" class="card-grid hidden"></div>
+  <div id="emptyView" class="empty-view hidden">저장되었거나 선택된 지역 정보가 없습니다.</div>
+</div>
+
+<script>
+  // 공공데이터포털 인코딩 인증키
+  const TOUR_API_KEY = "ae396a7866616358861e3caa7ff6eb1c89e0b17b464df99891bf232ea530dc47"; 
+
+  // Firebase Realtime Database URL
+  const FIREBASE_DB_URL = "https://my-first-app-1622f-default-rtdb.asia-southeast1.firebasedatabase.app";
+
+  window.onload = function() {
+    initApp();
+  };
+
+  /**
+   * 앱 실행 시 Firebase에 저장된 최근 데이터 확인
+   */
+  async function initApp() {
+    showStatus("Firebase에서 최근 저장된 정보를 확인하는 중...");
+    try {
+      const res = await fetch(`${FIREBASE_DB_URL}/lastSelectedArea.json`);
+      const savedData = await res.json();
+
+      if (savedData && savedData.areaCode && savedData.items) {
+        document.getElementById('areaCodeSelect').value = savedData.areaCode;
+        renderCards(savedData.items);
+        showStatus(`최근 저장된 [${savedData.areaName}] 정보 불러오기 완료`);
+      } else {
+        hideCardView();
+        showStatus("선택된 지역 정보가 없습니다. 지역을 선택해 주세요.");
+      }
+    } catch (e) {
+      hideCardView();
+      showStatus("초기 데이터 로딩 중 오류가 발생했습니다.");
+    }
+  }
+
+  /**
+   * 드롭다운 지역 선택 변경 시 실행
+   */
+  async function onAreaChange() {
+    const selectElem = document.getElementById('areaCodeSelect');
+    const areaCode = selectElem.value;
+    const areaName = selectElem.options[selectElem.selectedIndex].text;
+
+    if (!areaCode) {
+      hideCardView();
+      showStatus("지역을 선택해 주세요.");
+      return;
+    }
+
+    showStatus(`[${areaName}] 관광 정보를 불러오는 중...`);
+
+    // 최신 KorService2 API 호출
+    const items = await fetchTourData(areaCode);
+
+    if (items && items.length > 0) {
+      renderCards(items);
+      // Firebase에 최신 결과 갱신
+      await saveToFirebase(areaCode, areaName, items);
+      showStatus(`[${areaName}] 정보 조회 및 Firebase 저장 완료!`);
+    } else {
+      hideCardView();
+      showStatus(`[${areaName}]의 관광 정보 데이터가 없습니다.`);
+    }
+  }
+
+  /**
+   * 한국관광공사 KorService2 / areaBasedList2 API 호출
+   */
+  async function fetchTourData(areaCode) {
+    // 요청하신 v2 API 주소 적용
+    const endpoint = `https://apis.data.go.kr/B551011/KorService2/areaBasedList2` +
+      `?serviceKey=${encodeURIComponent(TOUR_API_KEY)}` +
+      `&numOfRows=12&pageNo=1&MobileOS=ETC&MobileApp=AppTest&_type=json` +
+      `&areaCode=${areaCode}`;
+
+    try {
+      const response = await fetch(endpoint);
+      const data = await response.json();
+      const itemArr = data.response?.body?.items?.item;
+      return Array.isArray(itemArr) ? itemArr : [];
+    } catch (error) {
+      console.error("API 호출 에러:", error);
+      return [];
+    }
+  }
+
+  /**
+   * Firebase Realtime Database 데이터 저장 (PUT)
+   */
+  async function saveToFirebase(areaCode, areaName, items) {
+    const payload = {
+      areaCode: areaCode,
+      areaName: areaName,
+      updatedAt: new Date().toISOString(),
+      items: items
+    };
+
+    try {
+      await fetch(`${FIREBASE_DB_URL}/lastSelectedArea.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) {
+      console.error("Firebase 저장 실패:", e);
+    }
+  }
+
+  /**
+   * 카드북 형태로 목록 UI 표출
+   */
+  function renderCards(items) {
+    const cardGrid = document.getElementById('cardGrid');
+    const emptyView = document.getElementById('emptyView');
+
+    cardGrid.innerHTML = '';
+    cardGrid.classList.remove('hidden');
+    emptyView.classList.add('hidden');
+
+    items.forEach(item => {
+      const imageUrl = item.firstimage || item.firstimage2 || 'https://via.placeholder.com/400x250?text=No+Image';
+      const title = item.title || '관광지명 없음';
+      const addr = item.addr1 || item.addr2 || '주소 정보 없음';
+
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.innerHTML = `
+        <img src="${imageUrl}" class="card-img" alt="${title}" onerror="this.src='https://via.placeholder.com/400x250?text=Image+Error'">
+        <div class="card-body">
+          <h3 class="card-title">${title}</h3>
+          <p class="card-addr">📍 ${addr}</p>
+        </div>
+      `;
+      cardGrid.appendChild(card);
+    });
+  }
+
+  function hideCardView() {
+    document.getElementById('cardGrid').classList.add('hidden');
+    document.getElementById('emptyView').classList.remove('hidden');
+  }
+
+  function showStatus(msg) {
+    document.getElementById('statusMsg').innerText = msg;
+  }
+</script>
+
+</body>
+</html>
