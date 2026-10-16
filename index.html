@@ -1,192 +1,217 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <base target="_top">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>실시간 선호도 투표</title>
   <style>
     * {
       box-sizing: border-box;
-      font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     }
     body {
-      background-color: #f5f7fb;
-      padding: 20px;
+      background-color: #f1f3f6;
       margin: 0;
+      padding: 0;
       display: flex;
       justify-content: center;
+      align-items: center;
+      min-height: 100vh;
     }
-    .poll-container {
-      background: white;
-      width: 100%;
-      max-width: 500px;
-      border-radius: 16px;
-      padding: 24px;
-      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
-    }
-    h2 {
-      margin-top: 0;
-      color: #1e293b;
-      font-size: 20px;
+    .container {
+      background: #ffffff;
+      width: 90%;
+      max-width: 520px;
+      border-radius: 20px;
+      padding: 36px 32px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.04);
       text-align: center;
-      margin-bottom: 24px;
     }
-    .option-card {
-      margin-bottom: 16px;
-      border: 1px solid #e2e8f0;
+    h1 {
+      font-size: 24px;
+      font-weight: 700;
+      color: #202124;
+      margin: 0 0 8px 0;
+    }
+    .subtitle {
+      font-size: 14px;
+      color: #70757a;
+      margin-bottom: 28px;
+    }
+    .button-group {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      margin-bottom: 32px;
+    }
+    .vote-btn {
+      flex: 1;
+      padding: 14px 10px;
+      background-color: #f8f9fa;
+      border: 1px solid #dadce0;
       border-radius: 12px;
-      padding: 14px 16px;
+      font-size: 15px;
+      font-weight: 600;
+      color: #3c4043;
       cursor: pointer;
       transition: all 0.2s ease;
-      background-color: #fff;
     }
-    .option-card:hover {
-      border-color: #3b82f6;
-      background-color: #f0f6ff;
+    .vote-btn:hover {
+      background-color: #f1f3f4;
+      border-color: #bdc1c6;
     }
-    .option-header {
+    .vote-btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .results-section {
+      text-align: left;
+    }
+    .bar-item {
+      margin-bottom: 20px;
+    }
+    .bar-header {
       display: flex;
       justify-content: space-between;
-      margin-bottom: 8px;
-      font-weight: 600;
-      color: #334155;
-    }
-    .vote-count {
       font-size: 14px;
-      color: #64748b;
+      font-weight: 700;
+      color: #202124;
+      margin-bottom: 8px;
     }
-    /* CSS Bar 차트 스타일 */
-    .bar-background {
+    .bar-bg {
       width: 100%;
-      height: 12px;
-      background-color: #f1f5f9;
-      border-radius: 6px;
+      height: 18px;
+      background-color: #e8eaed;
+      border-radius: 9px;
       overflow: hidden;
     }
     .bar-fill {
       height: 100%;
       width: 0%;
-      background: linear-gradient(90deg, #3b82f6, #60a5fa);
-      border-radius: 6px;
-      transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      background-color: #635bff;
+      border-radius: 9px;
+      transition: width 0.5s ease-in-out;
     }
-    .total-votes {
+    .footer-status {
+      margin-top: 24px;
+      font-size: 13px;
+      color: #70757a;
       text-align: center;
-      margin-top: 20px;
-      font-size: 14px;
-      color: #94a3b8;
     }
-    .loading-overlay {
-      text-align: center;
-      padding: 10px;
-      color: #3b82f6;
-      font-size: 14px;
-    }
-    button.vote-btn {
-      width: 100%;
-      padding: 8px;
-      margin-top: 6px;
-      background-color: #3b82f6;
-      color: white;
-      border: none;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-    }
-    button.vote-btn:disabled {
-      background-color: #cbd5e1;
-      cursor: not-allowed;
+    .status-msg {
+      margin-top: 10px;
+      font-size: 13px;
+      color: #635bff;
+      font-weight: 500;
+      min-height: 18px;
     }
   </style>
 </head>
 <body>
 
-<div class="poll-container">
-  <h2>📊 프로젝트 방향성 투표</h2>
-  
-  <div id="poll-list">
-    <div class="loading-overlay">결과를 불러오는 중...</div>
+<div class="container">
+  <h1>실시간 선호도 투표</h1>
+  <div class="subtitle">원하는 항목을 클릭해 투표에 참여해 보세요.</div>
+
+  <div class="button-group">
+    <button class="vote-btn" onclick="handleVote('A안')">A안 투표</button>
+    <button class="vote-btn" onclick="handleVote('B안')">B안 투표</button>
+    <button class="vote-btn" onclick="handleVote('C안')">C안 투표</button>
   </div>
 
-  <div class="total-votes" id="total-count">총 투표수: 0표</div>
+  <div class="results-section" id="chart-area"></div>
+
+  <div class="footer-status" id="total-text">총 투표수: 0표</div>
+  <div class="status-msg" id="status-msg"></div>
 </div>
 
 <script>
-  let isVoting = false;
+  // 본인의 Firebase Realtime Database URL 주소
+  const FIREBASE_DB_URL = "https://my-first-app-1622f-default-rtdb.asia-southeast1.firebasedatabase.app";
+  let isProcessing = false;
 
-  // 페이지 로드 시 초기 투표 결과 불러오기
   window.onload = function() {
-    loadResults();
+    loadData();
   };
 
-  /**
-   * GET: 백엔드에서 최신 투표 결과 가져오기
-   */
-  function loadResults() {
-    google.script.run
-      .withSuccessHandler(renderPoll)
-      .withFailureHandler(handleError)
-      .getPollResults();
+  // REST API로 데이터 가져오기 (GET)
+  async function loadData() {
+    try {
+      const res = await fetch(`${FIREBASE_DB_URL}/votes.json`);
+      const data = await res.json() || {};
+      
+      const results = {
+        "A안": data["A안"] || 0,
+        "B안": data["B안"] || 0,
+        "C안": data["C안"] || 0
+      };
+      
+      renderChart(results);
+    } catch (e) {
+      document.getElementById('status-msg').innerText = '데이터를 불러오는 중 오류가 발생했습니다.';
+    }
   }
 
-  /**
-   * 사용자 클릭 시 투표 등록 및 1 증가 처리
-   */
-  function submitVote(optionName) {
-    if (isVoting) return;
-    isVoting = true;
-    
-    // UI 로딩 표시
-    const totalElem = document.getElementById('total-count');
-    totalElem.innerText = "투표 반영 중...";
+  // REST API로 투표수 1 증가시키기 (PUT)
+  async function handleVote(option) {
+    if (isProcessing) return;
+    isProcessing = true;
 
-    google.script.run
-      .withSuccessHandler((updatedResults) => {
-        isVoting = false;
-        renderPoll(updatedResults);
-      })
-      .withFailureHandler((err) => {
-        isVoting = false;
-        handleError(err);
-      })
-      .voteOption(optionName);
+    setButtonsDisabled(true);
+    document.getElementById('status-msg').innerText = `'${option}'에 투표 반영 중...`;
+
+    try {
+      // 1. 현재 표수 확인
+      const getRes = await fetch(`${FIREBASE_DB_URL}/votes/${encodeURIComponent(option)}.json`);
+      let count = await getRes.json();
+      if (count === null || isNaN(count)) count = 0;
+
+      // 2. 표수 1 증가 후 업데이트
+      await fetch(`${FIREBASE_DB_URL}/votes/${encodeURIComponent(option)}.json`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(count + 1)
+      });
+
+      document.getElementById('status-msg').innerText = '';
+      await loadData();
+    } catch (e) {
+      document.getElementById('status-msg').innerText = '투표 중 오류가 발생했습니다.';
+    } finally {
+      isProcessing = false;
+      setButtonsDisabled(false);
+    }
   }
 
-  /**
-   * 투표 결과를 바탕으로 백분율 계산 및 CSS Bar 차트 렌더링
-   */
-  function renderPoll(results) {
-    const container = document.getElementById('poll-list');
-    container.innerHTML = '';
+  function renderChart(data) {
+    const chartArea = document.getElementById('chart-area');
+    chartArea.innerHTML = '';
 
-    // 전체 투표 합계 계산
-    const totalVotes = Object.values(results).reduce((acc, curr) => acc + curr, 0);
-    document.getElementById('total-count').innerText = `총 투표수: ${totalVotes}표`;
+    const total = Object.values(data).reduce((sum, val) => sum + val, 0);
+    document.getElementById('total-text').innerText = `총 투표수: ${total}표`;
 
-    // 각 항목별 백분율 계산 및 DOM 생성
-    Object.keys(results).forEach(option => {
-      const count = results[option];
-      // 백분율 계산 (0으로 나누기 방지)
-      const percentage = totalVotes > 0 ? ((count / totalVotes) * 100).toFixed(1) : 0;
+    Object.keys(data).forEach(option => {
+      const count = data[option];
+      const pct = total > 0 ? ((count / total) * 100).toFixed(1) : "0.0";
 
-      const card = document.createElement('div');
-      card.className = 'option-card';
-      card.onclick = () => submitVote(option);
-
-      card.innerHTML = `
-        <div class="option-header">
+      const itemDiv = document.createElement('div');
+      itemDiv.className = 'bar-item';
+      itemDiv.innerHTML = `
+        <div class="bar-header">
           <span>${option}</span>
-          <span class="vote-count">${count}표 (${percentage}%)</span>
+          <span>${count}표 (${pct}%)</span>
         </div>
-        <div class="bar-background">
-          <div class="bar-fill" style="width: ${percentage}%"></div>
+        <div class="bar-bg">
+          <div class="bar-fill" style="width: ${pct}%"></div>
         </div>
       `;
-      container.appendChild(card);
+      chartArea.appendChild(itemDiv);
     });
   }
 
-  function handleError(error) {
-    alert("오류가 발생했습니다: " + error.message);
-    loadResults();
+  function setButtonsDisabled(disabled) {
+    const btns = document.querySelectorAll('.vote-btn');
+    btns.forEach(btn => btn.disabled = disabled);
   }
 </script>
 
