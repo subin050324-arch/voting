@@ -58,15 +58,9 @@
       cursor: pointer;
       transition: all 0.2s ease;
     }
-    .vote-btn:hover:not(:disabled) {
+    .vote-btn:hover {
       background-color: #f1f3f4;
       border-color: #bdc1c6;
-    }
-    .vote-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-      background-color: #e8eaed;
-      color: #9aa0a6;
     }
 
     /* CSS Bar 차트 영역 */
@@ -140,23 +134,18 @@
 
   window.onload = function() {
     loadData();
-    checkAlreadyVoted(); // 접속 시 이전 투표 이력 확인
+    checkVoteStatus();
   };
 
-  /**
-   * 이미 투표한 사용자인지 확인하여 버튼 비활성화
-   */
-  function checkAlreadyVoted() {
-    const hasVoted = localStorage.getItem('has_voted_poll');
-    if (hasVoted) {
-      setButtonsDisabled(true);
-      document.getElementById('status-msg').innerText = `이미 '${hasVoted}'에 투표하셨습니다. (중복 투표 불가)`;
+  // 접속 시 이미 투표한 이력이 있다면 안내 메시지 출력
+  function checkVoteStatus() {
+    const votedOption = localStorage.getItem('has_voted_poll');
+    if (votedOption) {
+      document.getElementById('status-msg').innerText = `이미 '${votedOption}'에 투표하셨습니다. (중복 투표 불가)`;
     }
   }
 
-  /**
-   * 전체 투표 결과 조회 및 차트 출력
-   */
+  // 전체 데이터 가져오기
   async function loadData() {
     try {
       const res = await fetch(`${FIREBASE_DB_URL}/votes.json`);
@@ -174,19 +163,18 @@
     }
   }
 
-  /**
-   * 투표 처리 및 로컬 스토리지 저장
-   */
+  // 투표 버튼 클릭 시 실행
   async function handleVote(option) {
-    // 이미 투표했거나 처리 중인 경우 차단
-    if (localStorage.getItem('has_voted_poll')) {
-      alert('이미 투표에 참여하셨습니다.');
+    // ★ 클릭하자마자 이미 투표한 기록이 있는지 확인!
+    const votedOption = localStorage.getItem('has_voted_poll');
+    if (votedOption) {
+      alert(`이미 '${votedOption}'에 투표하셨습니다!`);
       return;
     }
+
     if (isProcessing) return;
     isProcessing = true;
 
-    setButtonsDisabled(true);
     document.getElementById('status-msg').innerText = `'${option}'에 투표 반영 중...`;
 
     try {
@@ -202,22 +190,20 @@
         body: JSON.stringify(count + 1)
       });
 
-      // 3. 브라우저에 투표 완료 상태 기록 (중복 투표 방지 핵심)
+      // 3. 내 브라우저에 투표 완료 기록
       localStorage.setItem('has_voted_poll', option);
 
-      document.getElementById('status-msg').innerText = `'${option}'에 투표가 완료되었습니다!`;
+      alert(`'${option}' 투표가 성공적으로 완료되었습니다!`);
+      document.getElementById('status-msg').innerText = `이미 '${option}'에 투표하셨습니다. (중복 투표 불가)`;
       await loadData();
     } catch (e) {
       document.getElementById('status-msg').innerText = '투표 처리 중 오류가 발생했습니다.';
-      setButtonsDisabled(false);
     } finally {
       isProcessing = false;
     }
   }
 
-  /**
-   * 백분율 및 CSS Bar 차트 렌더링
-   */
+  // 백분율 및 그래프 그리기도
   function renderChart(data) {
     const chartArea = document.getElementById('chart-area');
     chartArea.innerHTML = '';
@@ -242,11 +228,6 @@
       `;
       chartArea.appendChild(itemDiv);
     });
-  }
-
-  function setButtonsDisabled(disabled) {
-    const btns = document.querySelectorAll('.vote-btn');
-    btns.forEach(btn => btn.disabled = disabled);
   }
 </script>
 
