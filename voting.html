@@ -58,13 +58,15 @@
       cursor: pointer;
       transition: all 0.2s ease;
     }
-    .vote-btn:hover {
+    .vote-btn:hover:not(:disabled) {
       background-color: #f1f3f4;
       border-color: #bdc1c6;
     }
     .vote-btn:disabled {
-      opacity: 0.6;
+      opacity: 0.5;
       cursor: not-allowed;
+      background-color: #e8eaed;
+      color: #9aa0a6;
     }
 
     /* CSS Bar 차트 영역 */
@@ -118,7 +120,7 @@
   <h1>실시간 선호도 투표</h1>
   <div class="subtitle">원하는 항목을 클릭해 투표에 참여해 보세요.</div>
 
-  <!-- 투표 클릭 버튼 영역 -->
+  <!-- 투표 버튼 영역 -->
   <div class="button-group">
     <button class="vote-btn" onclick="handleVote('A안')">A안 투표</button>
     <button class="vote-btn" onclick="handleVote('B안')">B안 투표</button>
@@ -133,17 +135,27 @@
 </div>
 
 <script>
-  // Firebase Realtime Database URL
   const FIREBASE_DB_URL = "https://my-first-app-1622f-default-rtdb.asia-southeast1.firebasedatabase.app";
   let isProcessing = false;
 
-  // 페이지 로드 시 초기 투표 현황 가져오기
   window.onload = function() {
     loadData();
+    checkAlreadyVoted(); // 접속 시 이전 투표 이력 확인
   };
 
   /**
-   * 1. 전체 투표 결과를 GET으로 수신하여 백분율 계산 및 CSS 바 차트로 표시
+   * 이미 투표한 사용자인지 확인하여 버튼 비활성화
+   */
+  function checkAlreadyVoted() {
+    const hasVoted = localStorage.getItem('has_voted_poll');
+    if (hasVoted) {
+      setButtonsDisabled(true);
+      document.getElementById('status-msg').innerText = `이미 '${hasVoted}'에 투표하셨습니다. (중복 투표 불가)`;
+    }
+  }
+
+  /**
+   * 전체 투표 결과 조회 및 차트 출력
    */
   async function loadData() {
     try {
@@ -163,9 +175,14 @@
   }
 
   /**
-   * 2. 사용자가 항목 클릭 시, 해당 카운터 노드 조회 후 1 증가시켜 PUT으로 업데이트
+   * 투표 처리 및 로컬 스토리지 저장
    */
   async function handleVote(option) {
+    // 이미 투표했거나 처리 중인 경우 차단
+    if (localStorage.getItem('has_voted_poll')) {
+      alert('이미 투표에 참여하셨습니다.');
+      return;
+    }
     if (isProcessing) return;
     isProcessing = true;
 
@@ -173,42 +190,41 @@
     document.getElementById('status-msg').innerText = `'${option}'에 투표 반영 중...`;
 
     try {
-      // 2-1. Firebase의 해당 항목 카운터 노드 조회
+      // 1. 해당 항목 카운트 조회
       const getRes = await fetch(`${FIREBASE_DB_URL}/votes/${encodeURIComponent(option)}.json`);
       let count = await getRes.json();
       if (count === null || isNaN(count)) count = 0;
 
-      // 2-2. 값을 1 증가시켜 업데이트 (PUT)
+      // 2. 표수 1 증가 업데이트
       await fetch(`${FIREBASE_DB_URL}/votes/${encodeURIComponent(option)}.json`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(count + 1)
       });
 
-      document.getElementById('status-msg').innerText = '';
-      
-      // 2-3. 최신 데이터 재조회 및 화면 업데이트
+      // 3. 브라우저에 투표 완료 상태 기록 (중복 투표 방지 핵심)
+      localStorage.setItem('has_voted_poll', option);
+
+      document.getElementById('status-msg').innerText = `'${option}'에 투표가 완료되었습니다!`;
       await loadData();
     } catch (e) {
       document.getElementById('status-msg').innerText = '투표 처리 중 오류가 발생했습니다.';
+      setButtonsDisabled(false);
     } finally {
       isProcessing = false;
-      setButtonsDisabled(false);
     }
   }
 
   /**
-   * 3. 백분율 계산 및 CSS 바 차트 DOM 생성
+   * 백분율 및 CSS Bar 차트 렌더링
    */
   function renderChart(data) {
     const chartArea = document.getElementById('chart-area');
     chartArea.innerHTML = '';
 
-    // 총 투표수 계산
     const total = Object.values(data).reduce((sum, val) => sum + val, 0);
     document.getElementById('total-text').innerText = `총 투표수: ${total}표`;
 
-    // 각 항목별 백분율 계산 후 막대 그래프 표현
     Object.keys(data).forEach(option => {
       const count = data[option];
       const pct = total > 0 ? ((count / total) * 100).toFixed(1) : "0.0";
